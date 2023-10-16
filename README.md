@@ -34,7 +34,8 @@ python googleImageScraper.py --help
 ```
 
 ## Dependencies
-- Python 3.x
+- Python 3.x with PIP
+- Requests
 - Selenium
 - Pillow (PIL)
 - Firefox
