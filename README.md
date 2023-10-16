@@ -21,7 +21,7 @@ pip install -r requirements.txt
 ```
 4. Run the script:
 ```bash
-python googleImageScraper.py --query-terms 'apple' --pages 5 --output-path ./
+python googleImageScraper.py --query-terms 'apple' 'banana' --pages 5 --output-path ./
 ```
 
 Images matching your query will be downloaded and saved to folder with the same query term name, inside of the `output` folder (will be created if don't exists), which is relative to the `output-path` argument.
