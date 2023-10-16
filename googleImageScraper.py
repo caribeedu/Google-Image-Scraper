@@ -1,71 +1,113 @@
 import os
 import io
 import time
-import base64  
 import requests
+import argparse
 from PIL import Image
+from base64 import b64decode
 from urllib.parse import quote
 from selenium import webdriver
 from selenium.webdriver.common.by import By
-from selenium.webdriver.common.keys import Keys
-from selenium.webdriver.common.action_chains import ActionChains
+from selenium.webdriver.firefox.options import Options as FirefoxOptions
 
-# Enter query for Google search
-query = "plastic"
+def initialize():
+    parser = argparse.ArgumentParser(description='A Python script for automated image scraping from Google Images, ideal for creating datasets for machine learning and AI projects')
 
-# Convert the query into URL format
-query_url = quote(query)
+    parser.add_argument('--output-path', help='Base path where images will be saved')
+    parser.add_argument('--query-terms', nargs='+', help='Terms that will be used for search images. Accept multiple values')
+    parser.add_argument('--pages', type=int, help='Quantity of pages to be fetched')
 
-# Specify the desired folder path on the desktop
-folder_name = os.path.join('C:\\Users\\mahmu\\OneDrive\\Desktop', query)
+    return parser.parse_args()
 
-try:
-    # Create the folder if it doesn't exist
-    os.makedirs(folder_name)
-except Exception as e:
-    print(f"An error occurred: {str(e)}")
+def get_output_folder(base_output_path, query):
+    folder_name = os.path.join(base_output_path + '/output', query)
 
-# Initialize the Edge web browser using options and a service
-driver = webdriver.Edge(r"C:\Users\mahmu\MicrosoftWebDriver.exe")
+    try:
+        os.makedirs(folder_name)
+    except Exception as e:
+        print(f"Wasn't possible to create/access output folder for query '{query}'. Internal error: {str(e)}")
 
-# URL for Google Images search
-url = f"https://www.google.com/search?q={query_url}&tbm=isch"
+    return folder_name
 
-# Open the URL in the web browser
-driver.get(url)
+def initialize_driver():
+    options = FirefoxOptions()
+    options.add_argument("--headless")
+    return webdriver.Firefox(options=options)
 
-# Simulate scrolling to load more images
-for _ in range(10):  # Adjust the number based on the number of images wanted
-    driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
-    time.sleep(2)  # Wait for images to load
+def finalize_driver(driver):
+    driver.quit()
 
-try:
-    # Find all image elements
-    img_elements = driver.find_elements_by_css_selector('img.rg_i')
-    print(img_elements)
-except Exception as e:
-    print(f"An error occurred: {str(e)}")
+def create_query_url(query):
+    escaped_query = quote(query)
+    return f"https://www.google.com/search?q={escaped_query}&tbm=isch"
 
-# Download and save images
-for i, img in enumerate(img_elements):
-    img_url = img.get_attribute("src")
-    if img_url and img_url.startswith('http'):
-        img_response = requests.get(img_url)
-        img_name = f"{i + 1}.jpg"  
-        img_path = os.path.join(folder_name, img_name)
+def start_processing(base_output_path, query_terms, pages_quantity):
+    print(f"Processing started.")
 
-        # Save the image to computer
-        with open(img_path, "wb") as img_file:
-            img_file.write(img_response.content)
-    elif img_url and img_url.startswith('data:image/jpeg;base64'):
-        # Decode base64 image data and save it
-        img_data = img_url.split('base64,')[1]
-        img = Image.open(io.BytesIO(base64.b64decode(img_data)))
-        img_name = f"{i + 1}.jpg"  
-        img_path = os.path.join(folder_name, img_name)
-        img.save(img_path)
+    driver = initialize_driver()
 
-print(f"Images have been downloaded and saved in the folder: {folder_name}")
+    for query in query_terms:
+        search_and_download_images(driver, query, base_output_path, pages_quantity)
+        time.sleep(10)
 
-# Close the web browser
-driver.quit()
+    print(f"Processing finished.")
+    finalize_driver(driver)
+
+def search_and_download_images(driver, query, base_output_path, pages_quantity):
+    print(f"Searching images for query '{query}'...")
+
+    driver.get(create_query_url(query))
+    await_images_load(driver, pages_quantity)
+
+    imgs_elements = get_images_elements(driver)
+    output_path = get_output_folder(base_output_path, query)
+
+    downloaded_images_count = download_images_elements(imgs_elements, output_path)
+
+    print(f"Total of {downloaded_images_count} downloaded.")
+
+def await_images_load(driver, pages_quantity):
+    for _ in range(pages_quantity):
+        driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
+        time.sleep(2)
+
+def get_images_elements(driver):
+    try:
+        return driver.find_elements(By.CSS_SELECTOR,'img.rg_i')
+    except Exception as e:
+        print(f"Wasn't possible to get image elements from Google search results. Internal error: {str(e)}")
+
+def download_images_elements(imgs_elements, output_path):
+    downloaded_images_counter = 0
+
+    for index, img in enumerate(imgs_elements):
+        img_src = img.get_attribute("src")
+
+        if not img_src:
+            continue
+
+        if img_src.startswith('http'):
+            download_image_from_url(img_src, output_path, f"{index + 1}.jpg")
+            downloaded_images_counter += 1
+        elif img_src.startswith('data:image/jpeg;base64'):
+            download_image_from_base64(img_src, output_path, f"{index + 1}.jpg")
+            downloaded_images_counter += 1
+
+    return downloaded_images_counter
+
+def download_image_from_url(url, output_path, filename):
+    img_response = requests.get(url)
+    img_path = os.path.join(output_path, filename)
+
+    with open(img_path, "wb") as img_file:
+        img_file.write(img_response.content) 
+
+def download_image_from_base64(base64, output_path, filename):
+    img_data = base64.split('base64,')[1]
+    img = Image.open(io.BytesIO(b64decode(img_data)))
+    img_path = os.path.join(output_path, filename)
+    img.save(img_path)
+
+args = initialize()
+
+start_processing(args.output_path, args.query_terms, args.pages)
