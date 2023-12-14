@@ -7,6 +7,14 @@ This Python script allows you to scrape images from Google Images based on a spe
 
 ## Usage
 
+### Docker
+1. Run (and pull, if necessary) the following image, replacing the options as you need:
+```bash
+docker run -v /path/in/host/output:/app/output --rm caribeedu/google-image-scraper:latest python google_image_scraper.py --query-terms '<query-term>' --pages 1 --output-path /app
+```
+
+### Local
+
 1. Clone this repository to your local machine:
 ```bash
 git clone https://github.com/caribeedu/Google-Image-Scraper.git
@@ -21,7 +29,7 @@ pip install -r requirements.txt
 ```
 4. Run the script:
 ```bash
-python googleImageScraper.py --query-terms 'apple' 'banana' --pages 5 --output-path ./
+python google_image_scraper.py --query-terms 'apple' 'banana' --pages 5 --output-path ./
 ```
 
 Images matching your query will be downloaded and saved to folder with the same query term name, inside of the `output` folder (will be created if don't exists), which is relative to the `output-path` argument.
@@ -30,7 +38,7 @@ Images matching your query will be downloaded and saved to folder with the same 
 
 For more information use:
 ```bash
-python googleImageScraper.py --help
+python google_image_scraper.py --help
 ```
 
 ## Dependencies
